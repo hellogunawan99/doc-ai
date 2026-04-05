@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String     @id @default(uuid())
+  name      String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  employees Employee[]
+  documents Document[]
+}
+
+model Employee {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  password     String
+  companyId    String
+  company      Company       @relation(fields: [companyId], references: [id])
+  role         Role          @default(EMPLOYEE)
+  personaTone  String        @default("casual")
+  personaCustom String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  documents    Document[]
+  conversations Conversation[]
+}
+
+model Document {
+  id           String        @id @default(uuid())
+  companyId    String
+  company      Company       @relation(fields: [companyId], references: [id])
+  filename     String
+  fileType     FileType
+  filePath     String
+  uploadedById String
+  uploadedBy   Employee      @relation(fields: [uploadedById], references: [id])
+  chunkCount   Int           @default(0)
+  status       ProcessStatus @default(PROCESSING)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Conversation {
+  id         String    @id @default(uuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  messages   Message[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  role           MessageRole
+  content        String
+  sources        String[]     @default([])
+  confidence     Float?
+  createdAt      DateTime     @default(now())
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum FileType {
+  PDF
+  PPTX
+  DOCX
+  XLSX
+}
+
+enum ProcessStatus {
+  PROCESSING
+  READY
+  ERROR
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
