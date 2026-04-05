@@ -128,3 +128,37 @@ async def get_conversations(current_user: dict = Depends(get_current_user)):
         return conversations
     finally:
         await prisma.disconnect()
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    await prisma.connect()
+    try:
+        employee = await prisma.employee.find_unique(
+            where={"email": current_user["email"]}
+        )
+        if not employee:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        conversation = await prisma.conversation.find_unique(
+            where={"id": conversation_id}
+        )
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        
+        if conversation.employeeId != employee.id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        
+        await prisma.message.delete_many(
+            where={"conversationId": conversation_id}
+        )
+        
+        await prisma.conversation.delete(
+            where={"id": conversation_id}
+        )
+        
+        return {"message": "Conversation deleted"}
+    finally:
+        await prisma.disconnect()
