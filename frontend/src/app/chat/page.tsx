@@ -6,12 +6,25 @@ import { api } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Sidebar } from '@/components/Sidebar';
+import { CitationCard } from '@/components/CitationCard';
+import dynamic from 'next/dynamic';
+import { Citation } from '@/lib/types';
+
+const PDFViewer = dynamic(
+  () => import('@/components/PDFViewer').then(mod => mod.PDFViewer),
+  { ssr: false }
+);
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [pdfViewerData, setPdfViewerData] = useState<{
+    citation: Citation;
+    documentName: string;
+    documentUrl: string;
+  } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -105,6 +118,24 @@ export default function ChatPage() {
     router.push('/login');
   };
 
+  const handleViewCitation = async (citation: Citation) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/documents/${citation.document_id}`, {
+        headers: { 'Authorization': `Bearer ${api.getToken()}` },
+      });
+      if (response.ok) {
+        const doc = await response.json();
+        setPdfViewerData({
+          citation,
+          documentName: doc.filename,
+          documentUrl: `http://localhost:8000/${doc.filePath.replace('backend/', '')}`,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load document:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       <Sidebar
@@ -159,6 +190,19 @@ export default function ChatPage() {
                   <div className={`rounded-lg p-4 ${message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}>
                     <p className="whitespace-pre-wrap">{message.content}</p>
                   </div>
+                  {message.role === 'assistant' && message.sources && message.sources.length > 0 && Array.isArray(message.sources) && message.sources[0] && typeof message.sources[0] === 'object' && (
+                    <div className="mt-4 space-y-2">
+                      <p className="text-xs text-gray-500 font-medium">Sources:</p>
+                      {(message.sources as Citation[]).map((citation: Citation, idx: number) => (
+                        <CitationCard
+                          key={citation.chunk_id}
+                          citation={citation}
+                          index={idx}
+                          onView={handleViewCitation}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -200,6 +244,15 @@ export default function ChatPage() {
           </div>
         </main>
       </div>
+
+      {pdfViewerData && (
+        <PDFViewer
+          citation={pdfViewerData.citation}
+          documentName={pdfViewerData.documentName}
+          documentUrl={pdfViewerData.documentUrl}
+          onClose={() => setPdfViewerData(null)}
+        />
+      )}
     </div>
   );
 }
