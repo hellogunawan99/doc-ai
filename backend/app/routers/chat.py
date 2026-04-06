@@ -25,9 +25,15 @@ class ChatMessage(BaseModel):
     content: str
     conversationId: Optional[str] = None
 
+class SourceInfo(BaseModel):
+    chunk_id: str
+    document_id: str
+    page: int
+    excerpt: str
+
 class ChatResponse(BaseModel):
     content: str
-    sources: List[str]
+    sources: List[SourceInfo]
     confidence: float
     conversationId: Optional[str] = None
 
@@ -53,7 +59,7 @@ async def chat(message: ChatMessage, current_user: dict = Depends(get_current_us
             })
             conversation_id = conversation.id
         
-        context_chunks = ["This is a test context about health. Health refers to the state of being free from illness or injury."]
+        context_chunks = [{"id": "fallback", "document_id": "", "page": 1, "content": "This is a test context about health. Health refers to the state of being free from illness or injury."}]
         
         try:
             from app.services.embeddings import embeddings_service
@@ -61,12 +67,20 @@ async def chat(message: ChatMessage, current_user: dict = Depends(get_current_us
             
             query_embedding = await embeddings_service.get_embedding(message.content)
             search_results = vector_store.search(query_embedding, top_k=5)
-            context_chunks = [r["content"] for r in search_results if r.get("content")]
+            context_chunks = [
+                {
+                    "id": r["id"],
+                    "document_id": r["document_id"],
+                    "page": r.get("page", 1),
+                    "content": r.get("content", "")
+                }
+                for r in search_results
+            ]
         except Exception as e:
             print(f"Search error: {e}")
         
         if not context_chunks:
-            context_chunks = ["No relevant documents found. Please upload some documents first."]
+            context_chunks = [{"id": "fallback", "document_id": "", "page": 1, "content": "No relevant documents found. Please upload some documents first."}]
         
         from app.services.rag_engine import rag_engine
         answer, sources, confidence = await rag_engine.generate_answer(
