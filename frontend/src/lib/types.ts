@@ -35,6 +35,13 @@ export interface Message {
   createdAt: string;
 }
 
+export interface Citation {
+  chunk_id: string;
+  document_id: string;
+  page: number;
+  excerpt: string;
+}
+
 export interface Conversation {
   id: string;
   employeeId: string;
