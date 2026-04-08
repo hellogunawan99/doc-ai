@@ -38,19 +38,20 @@ class VectorStore:
         except Exception as e:
             print(f"Warning: Could not ensure collection: {e}")
     
-    def add_chunks(self, chunks: List[str], document_id: str, embeddings: List[List[float]]):
+    def add_chunks(self, chunks: List[dict], document_id: str, embeddings: List[List[float]]):
         if not self.client:
             print("Qdrant not available, skipping vector storage")
             return
             
         try:
             points = []
-            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            for chunk, embedding in zip(chunks, embeddings):
                 point_id = str(uuid.uuid4())
                 payload = {
                     "document_id": document_id,
-                    "chunk_index": i,
-                    "content": chunk
+                    "page": chunk.get("page", 1),
+                    "chunk_index": chunk.get("chunk_index", 0),
+                    "content": chunk.get("text", "")
                 }
                 points.append(PointStruct(id=point_id, vector=embedding, payload=payload))
             
@@ -77,6 +78,8 @@ class VectorStore:
                     "id": result.id,
                     "content": result.payload.get("content", ""),
                     "document_id": result.payload.get("document_id", ""),
+                    "page": result.payload.get("page", 1),
+                    "chunk_index": result.payload.get("chunk_index", 0),
                     "score": result.score
                 }
                 for result in results.points

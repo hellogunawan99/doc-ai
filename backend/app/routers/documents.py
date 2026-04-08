@@ -76,11 +76,13 @@ async def upload_document(
         
         chunks = []
         try:
-            text = document_processor.extract_text(file_path, file_ext)
-            chunks = document_processor.chunk_text(text)
+            text_pages = document_processor.extract_text(file_path, file_ext)
+            chunks_with_pages = document_processor.chunk_text_with_pages(text_pages)
+            chunks = [{"page": c["page"], "chunk_index": c["chunk_index"], "text": c["text"]} for c in chunks_with_pages]
+            text = "\n\n".join([c["text"] for c in chunks_with_pages])
             
             if chunks:
-                embeddings = await embeddings_service.get_embeddings(chunks)
+                embeddings = await embeddings_service.get_embeddings([c["text"] for c in chunks])
                 vector_store.add_chunks(chunks, document.id, embeddings)
                 
                 await prisma.document.update(

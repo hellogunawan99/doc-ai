@@ -43,9 +43,9 @@ Answer:"""
     async def generate_answer(
         self,
         question: str,
-        context_chunks: List[str],
+        context_chunks: List[dict],
         persona: str = "casual"
-    ) -> tuple[str, List[str], float]:
+    ) -> tuple[str, List[dict], float]:
         if not context_chunks:
             return (
                 "I don't have any relevant documents to answer this question. Please upload some documents first.",
@@ -53,7 +53,8 @@ Answer:"""
                 0.0
             )
         
-        context = "\n\n".join(context_chunks)
+        context_texts = [chunk.get("content", "") for chunk in context_chunks]
+        context = "\n\n".join(context_texts)
         prompt = self.build_prompt(context, question, persona)
         
         try:
@@ -76,7 +77,15 @@ Answer:"""
                 answer = "I processed your request but didn't get a text response."
             
             confidence = 0.85
-            sources = [f"Document chunk {i+1}" for i in range(len(context_chunks))]
+            
+            sources = []
+            for i, chunk in enumerate(context_chunks):
+                sources.append({
+                    "chunk_id": chunk.get("id", f"chunk-{i}"),
+                    "document_id": chunk.get("document_id", ""),
+                    "page": chunk.get("page", 1),
+                    "excerpt": chunk.get("content", "")[:200]
+                })
             
             return answer, sources, confidence
             
